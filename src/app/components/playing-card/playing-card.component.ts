@@ -13,6 +13,6 @@ export class PlayingCardComponent {
     alias: 'monster',
   });
 
-  monsterTypeIcon: Signal<string> = computed(() => MonsterTypeProperties[this.monster().type].imageUrl);
+  monsterTypeIcon: Signal<string> = computed(() => MonsterTypeProperties[this.monster().type].image);
   backgroundColor: Signal<string> = computed(() => MonsterTypeProperties[this.monster().type].color);
 }

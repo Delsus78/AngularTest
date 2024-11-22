@@ -1,4 +1,5 @@
 import { Component, computed, inject, model, ModelSignal, signal, WritableSignal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { MonsterService } from '../../services/monster/monster.service';
 import { Monster } from '../../../models/monster.model';
 import { CommonModule } from '@angular/common';
@@ -18,19 +19,12 @@ export class MonsterListComponent {
 
   monsterService: MonsterService = inject(MonsterService);
 
-  monsters: WritableSignal<Monster[]> = signal<Monster[]>([]);
+  monsters = toSignal(this.monsterService.getAll());
   search: ModelSignal<string> = model<string>('');
 
   filteredMonsters = computed(() => {
-    return this.monsters().filter(monster => monster.name.toLowerCase().includes(this.search().toLowerCase()));
+    return this.monsters()?.filter(monster => monster.name.toLowerCase().includes(this.search().toLowerCase())) ?? [];
   });
-
-  selectedMonsterIndex: WritableSignal<number> = signal(1);
-  selectedMonser = computed(() => this.monsters()[this.selectedMonsterIndex()]);
-
-  constructor() {
-    this.monsters.set(this.monsterService.getAll());
-  }
 
   addMonster() {
     this.router.navigate(['monster']);

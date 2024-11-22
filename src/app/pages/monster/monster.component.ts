@@ -1,7 +1,7 @@
 import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { filter, of, Subscription, switchMap } from 'rxjs';
 import { MonsterType } from '../../utils/monster.utils';
 import { PlayingCardComponent } from "../../components/playing-card/playing-card.component";
 import { Monster } from '../../../models/monster.model';
@@ -31,12 +31,11 @@ export class MonsterComponent implements OnInit, OnDestroy {
   private monsterService = inject(MonsterService);
   private readonly deleteDialog = inject(MatDialog);
   
-  private routeSubscription: Subscription | null = null;
-  private formValuesSubscription: Subscription | null = null;
+  private subscriptions: Subscription = new Subscription();
 
   formGroup: FormGroup = this.formBuilder.group({
     name: ['', [Validators.required]],
-    imageUrl: ['', [Validators.required]],
+    image: ['', [Validators.required]],
     type: [MonsterType.ELECTRIC, [Validators.required]],
     hp: [1, [Validators.required, Validators.min(1), Validators.max(200)]],
     figureCaption: ['', [Validators.required]],
@@ -50,20 +49,26 @@ export class MonsterComponent implements OnInit, OnDestroy {
   monsterTypes = Object.values(MonsterType);
 
   ngOnInit(): void {
-    this.formValuesSubscription = this.formGroup.valueChanges.subscribe(data => {
+    const formValuesSubscription = this.formGroup.valueChanges.subscribe(data => {
       this.monster = Object.assign(new Monster(), data);
     });
+    this.subscriptions.add(formValuesSubscription);
 
-    this.routeSubscription = this.route.params.subscribe(params => {
-      if (params['id']) {
-        this.monsterId = parseInt(params['id']);
-        const mosterFound = this.monsterService.get(this.monsterId);
-        if (mosterFound) {
-          this.monster = mosterFound;
-          this.formGroup.patchValue(this.monster);
+    const routeSubscription = this.route.params.pipe(
+      switchMap(params => {
+        if (params['monster']) {
+          this.monsterId = parseInt(params['monster']);
+          return this.monsterService.get(this.monsterId);
         }
+        return of(null);
+      })
+    ).subscribe(monster => {
+      if (monster) {
+        this.monster = monster;
+        this.formGroup.patchValue(monster);
       }
     });
+    this.subscriptions.add(routeSubscription);
   }
 
   isFieldValid(field: string): boolean | undefined {
@@ -73,23 +78,17 @@ export class MonsterComponent implements OnInit, OnDestroy {
   }
   
   ngOnDestroy(): void {
-    if (this.routeSubscription) {
-      this.routeSubscription.unsubscribe();
-    }
-    if (this.formValuesSubscription) {
-      this.formValuesSubscription.unsubscribe();
-    }
+    this.subscriptions.unsubscribe();
   }
 
   deleteMonster() {
     const dialogRef = this.deleteDialog.open(DeleteMonsterConfirmationDialogComponent);
 
-    dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        this.monsterService.delete(this.monster.id);
-        this.navigateBack();
-      }
-    });
+    const deleteSubscription = dialogRef.afterClosed().pipe(
+      filter(confirmation => confirmation),
+      switchMap(() => this.monsterService.delete(this.monsterId))
+    ).subscribe(_ => this.navigateBack());
+    this.subscriptions.add(deleteSubscription);
   }
 
   navigateBack() {
@@ -98,12 +97,17 @@ export class MonsterComponent implements OnInit, OnDestroy {
 
   submit(event: Event) {
     event.preventDefault();
+    let saveObservable = null;
+
     if (this.monsterId === -1) {
-      this.monsterService.add(this.monster);
+      saveObservable = this.monsterService.add(this.monster);
     } else {
       this.monster.id = this.monsterId;
-      this.monsterService.update(this.monster);
+      saveObservable = this.monsterService.update(this.monster);
     }
-    this.navigateBack();
+    const saveSubscription = saveObservable.subscribe(() => 
+      this.navigateBack()
+    );
+    this.subscriptions.add(saveSubscription);
   }
 }

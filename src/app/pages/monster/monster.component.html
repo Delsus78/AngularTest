@@ -11,9 +11,9 @@
             }
         </mat-form-field>
         <mat-form-field>
-            <mat-label for="imageUrl">Image URL</mat-label>
-            <input matInput id="imageUrl" name="imageUrl" type="text" formControlName="imageUrl"/>
-            @if (isFieldValid('imageUrl')) {
+            <mat-label for="image">Image URL</mat-label>
+            <input matInput id="image" name="image" type="text" formControlName="image"/>
+            @if (isFieldValid('image')) {
                 <mat-error>This field is required.</mat-error>
             }
         </mat-form-field>
